@@ -27,7 +27,6 @@ services:
 
   referral:
     build: .
-    image: referral
     container_name: referral
     ports:
       - "8080:8080"
