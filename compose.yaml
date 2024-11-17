@@ -1,0 +1,52 @@
+services:
+  postgresql:
+    image: postgres:16.4-alpine3.20
+    container_name: postgres-dev
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "referrals"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWD}
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+      - ./pg-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d referrals"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  referral:
+    build: .
+    image: referral
+    container_name: referral
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWD: ${POSTGRES_PASSWD}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - postgresql
+
+  swagger:
+    image: swaggerapi/swagger-ui:v5.18.2
+    container_name: swagger
+    ports:
+      - 8081:8080
+    restart: unless-stopped
+    volumes:
+      - ./swagger/swagger.json:/referral/swagger.json
+    environment:
+      SWAGGER_JSON: /referral/swagger.json
+    depends_on:
+      - referral

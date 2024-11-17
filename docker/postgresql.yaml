@@ -1,0 +1,26 @@
+services:
+  postgresql:
+    image: postgres:16.4-alpine3.20
+    container_name: postgres-dev
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "referrals"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "admin1234"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ../migrations:/docker-entrypoint-initdb.d
+      - ../pg-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d referrals"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G

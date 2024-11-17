@@ -1,0 +1,4 @@
+.docker
+.migrations
+.pg-volume
+.swagger

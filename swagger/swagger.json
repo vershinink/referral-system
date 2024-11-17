@@ -1,0 +1,453 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API для реферальной системы - OpenAPI 3.0",
+    "description": "RESTful API сервис для взаимодействия с реферальной системой.\n***\n- Регистрация и аутентификация пользователей с помощью JWT токенов.\n- Аутентифицированный пользователь может создать свой код,  удалить неиспользованный для регистрации реферала код,  получить свой код.\n- Получение неиспользованного кода по электронной почте пользователя, если такой имеется в БД.\n- Регистрация пользователей в качестве рефералов по неиспользованным и неистекшим кодам.\n- Получение списка рефералов по id реферера.\n- Документация в Swagger.\n- Настройки сервиса вынесены в конфиг файл.\n- Основной Код покрыт тестами. Отдельные компоненты системы тестируются с использованием моков.\n- Деплой всей системы осуществляется с помощью Docker compose.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "localhost"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Public",
+      "description": "Эндпоинты без аутентификации"
+    },
+    {
+      "name": "Protected",
+      "description": "Эндпоинты с аутентификацией по JWT токену"
+    }
+  ],
+  "paths": {
+    "/api/users": {
+      "post": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Регистрация пользователя",
+        "description": "Регистрация нового пользователя в системе. Если в теле запроса передан реферальный код, то пользователь будет зарегистрирован как реферал по этому коду.     \n*Заголовок `Content-Type` должен содержать значение `application/json`*.\n",
+        "requestBody": {
+          "description": "Структура тела запроса на регистрацию пользователя",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь создан"
+          },
+          "400": {
+            "description": "Некорректные входные данные или такой пользователь уже существует"
+          },
+          "415": {
+            "description": "Неверный Content-Type в запросе"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      }
+    },
+    "/api/users/login": {
+      "post": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Аутентификация пользователя",
+        "description": "Аутентификация пользователя в системе.    \n*Заголовок `Content-Type` должен содержать значение `application/json`*.\n",
+        "requestBody": {
+          "description": "Структура тела запроса на аутентификацию пользователя",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Аутентификация успешна",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные входные данные"
+          },
+          "404": {
+            "description": "Нет пользователя с таким адресом"
+          },
+          "415": {
+            "description": "Неверный Content-Type в запросе"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Получение списка рефералов",
+        "description": "Получение массива рефералов по id пользователя-реферера.\n",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Идентификатор пользователя-реферера",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Массив пользователей-рефералов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные входные данные"
+          },
+          "404": {
+            "description": "Нет пользователя с таким id"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      }
+    },
+    "/api/refcodes": {
+      "post": {
+        "tags": [
+          "Protected"
+        ],
+        "summary": "Создание реферального кода",
+        "description": "Создание аутентифицированным пользователем реферального кода. Идентификатор пользователя получается из payload секции JWT токена.\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Реферальный код создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные входные данные"
+          },
+          "401": {
+            "description": "Ошибка аутентификации JWT токена"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Protected"
+        ],
+        "summary": "Получение реферального кода",
+        "description": "Получение реферального кода пользователя. Идентификатор пользователя получается из payload секции JWT токена.\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Структура тела ответа на запрос реферального кода",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Ошибка аутентификации JWT токена"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Protected"
+        ],
+        "summary": "Удаление реферального кода",
+        "description": "Удаление реферального кода пользователя. Идентификатор пользователя получается из payload секции JWT токена.\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Код успешно удален"
+          },
+          "401": {
+            "description": "Ошибка аутентификации JWT токена"
+          },
+          "403": {
+            "description": "Нельзя удалить код, так как он уже был использован для регистрации"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      }
+    },
+    "/api/refcodes/email/{email}": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Получение реферального кода по email",
+        "description": "Получение неиспользованного реферального кода по email пользователя..\n",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "description": "Электронная почтка пользователя",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "bob@gmail.com"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Структура тела ответа на запрос реферального кода",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные входные данные"
+          },
+          "404": {
+            "description": "Нет валидного реферального кода у пользователя с таким email"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервиса"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "description": "Структура тела запроса на регистрацию пользователя",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Адрес электронной почты",
+            "maxLength": 100,
+            "example": "bob@gmail.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль",
+            "minLength": 6,
+            "maxLength": 72,
+            "example": "12345678"
+          },
+          "refcode": {
+            "type": "string",
+            "description": "Реферальный код",
+            "maxLength": 100,
+            "example": "qwerty"
+          }
+        }
+      },
+      "LoginRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "description": "Структура тела запроса на аутентификацию пользователя",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Адрес электронной почты",
+            "maxLength": 100,
+            "example": "bob@gmail.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль",
+            "minLength": 6,
+            "maxLength": 72,
+            "example": "12345678"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "description": "Структура тела ответа на аутентификацию пользователя",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT токен"
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор пользователя",
+            "format": "int64",
+            "example": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Адрес электронной почты",
+            "example": "bob@gmail.com"
+          },
+          "created": {
+            "type": "string",
+            "description": "Дата и время создания пользователя",
+            "format": "date-time"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "description": "Структура ответа с данными о пользователе",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор пользователя",
+            "format": "int64",
+            "example": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Адрес электронной почты",
+            "example": "bob@gmail.com"
+          },
+          "created": {
+            "type": "string",
+            "description": "Дата и время создания пользователя",
+            "format": "date-time"
+          }
+        }
+      },
+      "CodeResponse": {
+        "type": "object",
+        "description": "Структура тела ответа на запрос реферального кода",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор реферального кода",
+            "format": "int64",
+            "example": 1
+          },
+          "code": {
+            "type": "string",
+            "description": "Строковое значение реферального кода",
+            "example": "qwerty"
+          },
+          "owner_id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор пользователя, кому принадлежит реферальный код",
+            "format": "int64",
+            "example": 1
+          },
+          "created": {
+            "type": "string",
+            "description": "Дата и время создания реферального кода",
+            "format": "date-time"
+          },
+          "expired": {
+            "type": "string",
+            "description": "Дата и время создания истечения срока годности реферального кода",
+            "format": "date-time"
+          },
+          "is_used": {
+            "type": "boolean",
+            "description": "Значение использованности кода",
+            "example": false
+          }
+        }
+      }
+    },
+    "requestBodies": {
+      "RegisterRequest": {
+        "description": "Структура тела запроса на регистрацию пользователя",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RegisterRequest"
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "description": "Структура тела запроса на аутентификацию пользователя",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LoginRequest"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Необходимо вставить JWT токен",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
